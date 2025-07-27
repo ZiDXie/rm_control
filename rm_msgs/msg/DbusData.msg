@@ -34,4 +34,4 @@ bool key_c
 bool key_v
 bool key_b
 
-time stamp
+builtin_interfaces/Time stamp

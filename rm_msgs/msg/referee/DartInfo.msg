@@ -1,6 +1,0 @@
-uint8 dart_remaining_time
-uint8 dart_last_aim_state
-uint8 enemy_total_hit_received
-uint8 dart_current_target
-
-time stamp

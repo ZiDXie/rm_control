@@ -1,122 +1,33 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.8)
 project(rm_msgs)
 
-find_package(catkin REQUIRED COMPONENTS
-        message_generation
-        std_msgs
-        geometry_msgs
-        actionlib
-        actionlib_msgs
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
+
+# find dependencies
+find_package(ament_cmake REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(action_msgs REQUIRED)
+find_package(builtin_interfaces REQUIRED)
+
+# Generate interfaces
+rosidl_generate_interfaces(${PROJECT_NAME}
+  # Main messages
+  "msg/DbusData.msg"
+  "msg/GpioData.msg"
+  DEPENDENCIES
+  std_msgs
+  geometry_msgs
+  action_msgs
+  builtin_interfaces
 )
 
-add_message_files(
-        FILES
-        ActuatorState.msg
-        BalanceState.msg
-        BusState.msg
-        DbusData.msg
-        ExchangerMsg.msg
-        ChassisCmd.msg
-        ShootCmd.msg
-        ShootState.msg
-        ShootBeforehandCmd.msg
-        GimbalCmd.msg
-        GimbalDesError.msg
-        GimbalPosState.msg
-        LegCmd.msg
-        LpData.msg
-        LocalHeatState.msg
-        KalmanData.msg
-        MovingAverageData.msg
-        GpioData.msg
-        TofRadarData.msg
-        MultiDofCmd.msg
-        TagMsg.msg
-        TagMsgArray.msg
-        SentryDeviate.msg
-        CustomControllerData.msg
-        VTKeyboardMouseData.msg
-        VTReceiverControlData.msg
-)
+if(BUILD_TESTING)
+  find_package(ament_lint_auto REQUIRED)
+  ament_lint_auto_find_test_dependencies()
+endif()
 
-add_service_files(
-        FILES
-        ContinousDetectorSwitch.srv
-        StatusChange.srv
-        SetLimitVel.srv
-        CameraStatus.srv
-        EnableImuTrigger.srv
-        EnableGyro.srv
-)
-
-add_message_files(
-        DIRECTORY msg/detection
-        FILES
-        PriorityArray.msg
-        TargetDetection.msg
-        TargetDetectionArray.msg
-        TrackData.msg
-)
-
-add_message_files(
-        DIRECTORY msg/referee
-        FILES
-        CapacityData.msg
-        GameRobotStatus.msg
-        GameStatus.msg
-        StateCmd.msg
-        EngineerUi.msg
-        GameRobotHp.msg
-        PowerHeatData.msg
-        EventData.msg
-        DartStatus.msg
-        IcraBuffDebuffZoneStatus.msg
-        SupplyProjectileAction.msg
-        DartInfo.msg
-        RobotHurt.msg
-        SentryAttackingTarget.msg
-        ShootData.msg
-        BulletAllowance.msg
-        RfidStatus.msg
-        DartClientCmd.msg
-        ManualToReferee.msg
-        RadarData.msg
-        RadarMarkData.msg
-        RobotsPositionData.msg
-        ClientMapSendData.msg
-        ClientMapReceiveData.msg
-        MapSentryData.msg
-        GameRobotPosData.msg
-        SentryInfo.msg
-        RadarInfo.msg
-        Buff.msg
-        RadarToSentry.msg
-        SentryCmd.msg
-        VisualizeStateData.msg
-        PowerManagementSampleAndStatusData.msg
-        PowerManagementInitializationExceptionData.msg
-        PowerManagementProcessStackOverflowData.msg
-        PowerManagementSystemExceptionData.msg
-        PowerManagementUnknownExceptionData.msg
-)
-
-add_action_files(
-        FILES
-        Engineer.action
-)
-# Generate added messages and services with any dependencies listed here
-generate_messages(
-        DEPENDENCIES
-        std_msgs
-        geometry_msgs
-        actionlib_msgs
-)
-
-catkin_package(
-        CATKIN_DEPENDS
-        message_runtime
-        std_msgs
-        geometry_msgs
-        actionlib
-        actionlib_msgs
-)
+ament_package()
