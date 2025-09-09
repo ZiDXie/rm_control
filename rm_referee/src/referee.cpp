@@ -142,52 +142,6 @@ int Referee::unpack(uint8_t* rx_data)
           game_robot_hp_pub_.publish(game_robot_hp_data);
           break;
         }
-        case rm_referee::RefereeCmdId::DART_STATUS_CMD:
-        {
-          rm_referee::DartStatus dart_status_ref;
-          rm_msgs::DartStatus dart_status_data;
-          memcpy(&dart_status_ref, rx_data + 7, sizeof(rm_referee::DartStatus));
-
-          dart_status_data.dart_belong = dart_status_ref.dart_belong;
-          dart_status_data.stage_remaining_time = dart_status_ref.stage_remaining_time;
-          dart_status_data.stamp = last_get_data_time_;
-
-          dart_status_pub_.publish(dart_status_data);
-          break;
-        }
-        case rm_referee::RefereeCmdId::ICRA_ZONE_STATUS_CMD:
-        {
-          rm_referee::IcraBuffDebuffZoneStatus icra_buff_debuff_zone_status_ref;
-          rm_msgs::IcraBuffDebuffZoneStatus icra_buff_debuff_zone_status_data;
-          memcpy(&icra_buff_debuff_zone_status_ref, rx_data + 7, sizeof(rm_referee::IcraBuffDebuffZoneStatus));
-
-          icra_buff_debuff_zone_status_data.blue_1_bullet_left = icra_buff_debuff_zone_status_ref.blue_1_bullet_left;
-          icra_buff_debuff_zone_status_data.blue_2_bullet_left = icra_buff_debuff_zone_status_ref.blue_2_bullet_left;
-          icra_buff_debuff_zone_status_data.red_1_bullet_left = icra_buff_debuff_zone_status_ref.red_1_bullet_left;
-          icra_buff_debuff_zone_status_data.red_2_bullet_left = icra_buff_debuff_zone_status_ref.red_2_bullet_left;
-          icra_buff_debuff_zone_status_data.f_1_zone_buff_debuff_status =
-              icra_buff_debuff_zone_status_ref.f_1_zone_buff_debuff_status;
-          icra_buff_debuff_zone_status_data.f_1_zone_status = icra_buff_debuff_zone_status_ref.f_1_zone_status;
-          icra_buff_debuff_zone_status_data.f_2_zone_buff_debuff_status =
-              icra_buff_debuff_zone_status_ref.f_2_zone_buff_debuff_status;
-          icra_buff_debuff_zone_status_data.f_2_zone_status = icra_buff_debuff_zone_status_ref.f_2_zone_status;
-          icra_buff_debuff_zone_status_data.f_3_zone_buff_debuff_status =
-              icra_buff_debuff_zone_status_ref.f_3_zone_buff_debuff_status;
-          icra_buff_debuff_zone_status_data.f_3_zone_status = icra_buff_debuff_zone_status_ref.f_3_zone_status;
-          icra_buff_debuff_zone_status_data.f_4_zone_buff_debuff_status =
-              icra_buff_debuff_zone_status_ref.f_4_zone_buff_debuff_status;
-          icra_buff_debuff_zone_status_data.f_4_zone_status = icra_buff_debuff_zone_status_ref.f_4_zone_status;
-          icra_buff_debuff_zone_status_data.f_5_zone_buff_debuff_status =
-              icra_buff_debuff_zone_status_ref.f_5_zone_buff_debuff_status;
-          icra_buff_debuff_zone_status_data.f_5_zone_status = icra_buff_debuff_zone_status_ref.f_5_zone_status;
-          icra_buff_debuff_zone_status_data.f_6_zone_buff_debuff_status =
-              icra_buff_debuff_zone_status_ref.f_6_zone_buff_debuff_status;
-          icra_buff_debuff_zone_status_data.f_6_zone_status = icra_buff_debuff_zone_status_ref.f_6_zone_status;
-          icra_buff_debuff_zone_status_data.stamp = last_get_data_time_;
-
-          icra_buff_debuff_zone_status_pub_.publish(icra_buff_debuff_zone_status_data);
-          break;
-        }
         case rm_referee::RefereeCmdId::FIELD_EVENTS_CMD:
         {
           rm_referee::EventData event_ref;
@@ -208,22 +162,6 @@ int Referee::unpack(uint8_t* rx_data)
           event_data.stamp = last_get_data_time_;
 
           event_data_pub_.publish(event_data);
-          break;
-        }
-        case rm_referee::RefereeCmdId::SUPPLY_PROJECTILE_ACTION_CMD:
-        {
-          rm_referee::SupplyProjectileAction supply_projectile_action_ref;
-          rm_msgs::SupplyProjectileAction supply_projectile_action_data;
-          memcpy(&supply_projectile_action_ref, rx_data + 7, sizeof(rm_referee::SupplyProjectileAction));
-
-          supply_projectile_action_data.reserved = supply_projectile_action_ref.reserved;
-          supply_projectile_action_data.supply_projectile_num = supply_projectile_action_ref.supply_projectile_num;
-          supply_projectile_action_data.supply_projectile_step = supply_projectile_action_ref.supply_projectile_step;
-          supply_projectile_action_data.supply_robot_id = supply_projectile_action_ref.supply_robot_id;
-          supply_projectile_action_data.stamp = last_get_data_time_;
-
-          referee_ui_.supplyBulletDataCallBack(supply_projectile_action_data);
-          supply_projectile_action_pub_.publish(supply_projectile_action_data);
           break;
         }
         case rm_referee::RefereeCmdId::REFEREE_WARNING_CMD:
@@ -321,12 +259,6 @@ int Referee::unpack(uint8_t* rx_data)
             robot_buff.remaining_energy = 1;
 
           buff_pub_.publish(robot_buff);
-          break;
-        }
-        case rm_referee::RefereeCmdId::AERIAL_ROBOT_ENERGY_CMD:
-        {
-          rm_referee::AerialRobotEnergy aerial_robot_energy_ref;
-          memcpy(&aerial_robot_energy_ref, rx_data + 7, sizeof(rm_referee::AerialRobotEnergy));
           break;
         }
         case rm_referee::RefereeCmdId::ROBOT_HURT_CMD:
