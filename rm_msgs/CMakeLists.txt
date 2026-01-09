@@ -39,6 +39,7 @@ add_message_files(
         CustomControllerData.msg
         VTKeyboardMouseData.msg
         VTReceiverControlData.msg
+        LaserData.msg
 )
 
 add_service_files(
