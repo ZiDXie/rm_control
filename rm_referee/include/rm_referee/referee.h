@@ -91,6 +91,19 @@ public:
         power_management_nh.advertise<rm_msgs::PowerManagementProcessStackOverflowData>("stack_overflow", 1);
     power_management_unknown_exception_pub_ =
         power_management_nh.advertise<rm_msgs::PowerManagementUnknownExceptionData>("unknown_exception", 1);
+
+    nh.param("enable_perf_stats", enable_perf_stats_, true);
+    nh.param("perf_window_size", perf_window_size_, 200);
+    nh.param("perf_log_period_sec", perf_log_period_sec_, 1.0);
+    if (perf_window_size_ < 10)
+      perf_window_size_ = 10;
+    if (perf_log_period_sec_ < 0.1)
+      perf_log_period_sec_ = 0.1;
+
+    read_cost_us_samples_.reserve(static_cast<size_t>(perf_window_size_));
+    unpack_cost_us_samples_.reserve(static_cast<size_t>(perf_window_size_));
+    last_perf_log_time_ = ros::Time::now();
+
     // initSerial
     base_.initSerial();
   };
@@ -140,8 +153,18 @@ private:
   int unpack(uint8_t* rx_data);
   void getRobotInfo();
   void publishCapacityData();
+  void recordReadCostUs(double us);
+  void recordUnpackCostUs(double us);
+  void maybeLogPerfStats();
+  static double calcPercentile(std::vector<double> samples, double q);
 
   ros::Time last_get_data_time_;
+  ros::Time last_perf_log_time_;
+  bool enable_perf_stats_ = true;
+  int perf_window_size_ = 200;
+  double perf_log_period_sec_ = 1.0;
+  std::vector<double> read_cost_us_samples_;
+  std::vector<double> unpack_cost_us_samples_;
   const int k_frame_length_ = 128, k_header_length_ = 5, k_cmd_id_length_ = 2, k_tail_length_ = 2;
   const int k_unpack_buffer_length_ = 256;
   uint8_t unpack_buffer_[256]{};

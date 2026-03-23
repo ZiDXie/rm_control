@@ -124,7 +124,7 @@ public:
 
   void initSerial()
   {
-    serial::Timeout timeout = serial::Timeout::simpleTimeout(50);
+    serial::Timeout timeout = serial::Timeout::simpleTimeout(5);
     serial_.setPort("/dev/usbReferee");
     serial_.setBaudrate(115200);
     serial_.setTimeout(timeout);

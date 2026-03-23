@@ -36,18 +36,23 @@
 //
 #include "rm_referee/referee.h"
 
+#include <algorithm>
+
 namespace rm_referee
 {
 // read data from referee
 void Referee::read()
 {
-  if (base_.serial_.available())
-  {
-    rx_len_ = static_cast<int>(base_.serial_.available());
-    base_.serial_.read(rx_buffer_, rx_len_);
-  }
-  else
+  const ros::WallTime read_start = ros::WallTime::now();
+  const auto available = base_.serial_.available();
+  if (available == 0)
     return;
+
+  const auto bytes_read = base_.serial_.read(rx_buffer_, available);
+  if (bytes_read == 0)
+    return;
+
+  rx_len_ = static_cast<int>(bytes_read);
   uint8_t temp_buffer[256] = { 0 };
   int frame_len;
   if (ros::Time::now() - last_get_data_time_ > ros::Duration(0.1))
@@ -61,21 +66,37 @@ void Referee::read()
     for (int k_i = 0; k_i < k_unpack_buffer_length_; ++k_i)
       unpack_buffer_[k_i] = temp_buffer[k_i];
   }
+  else
+  {
+    // Keep the latest bytes when the serial burst is larger than unpack window.
+    for (int k_i = 0; k_i < k_unpack_buffer_length_; ++k_i)
+      unpack_buffer_[k_i] = rx_buffer_[rx_len_ - k_unpack_buffer_length_ + k_i];
+  }
   for (int k_i = 0; k_i < k_unpack_buffer_length_ - k_frame_length_; ++k_i)
   {
     if (unpack_buffer_[k_i] == 0xA5)
     {
       frame_len = unpack(&unpack_buffer_[k_i]);
       if (frame_len != -1)
-        k_i += frame_len;
+        k_i += frame_len - 1;
     }
   }
   getRobotInfo();
   clearRxBuffer();
+
+  const double read_cost_us = (ros::WallTime::now() - read_start).toSec() * 1e6;
+  recordReadCostUs(read_cost_us);
 }
 
 int Referee::unpack(uint8_t* rx_data)
 {
+  const ros::WallTime unpack_start = ros::WallTime::now();
+  auto finish_unpack = [&](int ret) {
+    const double unpack_cost_us = (ros::WallTime::now() - unpack_start).toSec() * 1e6;
+    recordUnpackCostUs(unpack_cost_us);
+    return ret;
+  };
+
   uint16_t cmd_id;
   int frame_len;
   rm_referee::FrameHeader frame_header;
@@ -86,12 +107,15 @@ int Referee::unpack(uint8_t* rx_data)
     if (frame_header.data_length > 256)  // temporary and inaccurate value
     {
       ROS_INFO("discard possible wrong frames, data length: %d", frame_header.data_length);
-      return 0;
+      return finish_unpack(0);
     }
     frame_len = frame_header.data_length + k_header_length_ + k_cmd_id_length_ + k_tail_length_;
+    if (frame_len > k_unpack_buffer_length_)
+      return finish_unpack(-1);
 
     if (base_.verifyCRC16CheckSum(rx_data, frame_len) == 1)
     {
+      last_get_data_time_ = ros::Time::now();
       cmd_id = (rx_data[6] << 8 | rx_data[5]);
       switch (cmd_id)
       {
@@ -134,52 +158,6 @@ int Referee::unpack(uint8_t* rx_data)
 
           referee_ui_.updateGameRobotHpDataCallBack(game_robot_hp_data);
           game_robot_hp_pub_.publish(game_robot_hp_data);
-          break;
-        }
-        case rm_referee::RefereeCmdId::DART_STATUS_CMD:
-        {
-          rm_referee::DartStatus dart_status_ref;
-          rm_msgs::DartStatus dart_status_data;
-          memcpy(&dart_status_ref, rx_data + 7, sizeof(rm_referee::DartStatus));
-
-          dart_status_data.dart_belong = dart_status_ref.dart_belong;
-          dart_status_data.stage_remaining_time = dart_status_ref.stage_remaining_time;
-          dart_status_data.stamp = last_get_data_time_;
-
-          dart_status_pub_.publish(dart_status_data);
-          break;
-        }
-        case rm_referee::RefereeCmdId::ICRA_ZONE_STATUS_CMD:
-        {
-          rm_referee::IcraBuffDebuffZoneStatus icra_buff_debuff_zone_status_ref;
-          rm_msgs::IcraBuffDebuffZoneStatus icra_buff_debuff_zone_status_data;
-          memcpy(&icra_buff_debuff_zone_status_ref, rx_data + 7, sizeof(rm_referee::IcraBuffDebuffZoneStatus));
-
-          icra_buff_debuff_zone_status_data.blue_1_bullet_left = icra_buff_debuff_zone_status_ref.blue_1_bullet_left;
-          icra_buff_debuff_zone_status_data.blue_2_bullet_left = icra_buff_debuff_zone_status_ref.blue_2_bullet_left;
-          icra_buff_debuff_zone_status_data.red_1_bullet_left = icra_buff_debuff_zone_status_ref.red_1_bullet_left;
-          icra_buff_debuff_zone_status_data.red_2_bullet_left = icra_buff_debuff_zone_status_ref.red_2_bullet_left;
-          icra_buff_debuff_zone_status_data.f_1_zone_buff_debuff_status =
-              icra_buff_debuff_zone_status_ref.f_1_zone_buff_debuff_status;
-          icra_buff_debuff_zone_status_data.f_1_zone_status = icra_buff_debuff_zone_status_ref.f_1_zone_status;
-          icra_buff_debuff_zone_status_data.f_2_zone_buff_debuff_status =
-              icra_buff_debuff_zone_status_ref.f_2_zone_buff_debuff_status;
-          icra_buff_debuff_zone_status_data.f_2_zone_status = icra_buff_debuff_zone_status_ref.f_2_zone_status;
-          icra_buff_debuff_zone_status_data.f_3_zone_buff_debuff_status =
-              icra_buff_debuff_zone_status_ref.f_3_zone_buff_debuff_status;
-          icra_buff_debuff_zone_status_data.f_3_zone_status = icra_buff_debuff_zone_status_ref.f_3_zone_status;
-          icra_buff_debuff_zone_status_data.f_4_zone_buff_debuff_status =
-              icra_buff_debuff_zone_status_ref.f_4_zone_buff_debuff_status;
-          icra_buff_debuff_zone_status_data.f_4_zone_status = icra_buff_debuff_zone_status_ref.f_4_zone_status;
-          icra_buff_debuff_zone_status_data.f_5_zone_buff_debuff_status =
-              icra_buff_debuff_zone_status_ref.f_5_zone_buff_debuff_status;
-          icra_buff_debuff_zone_status_data.f_5_zone_status = icra_buff_debuff_zone_status_ref.f_5_zone_status;
-          icra_buff_debuff_zone_status_data.f_6_zone_buff_debuff_status =
-              icra_buff_debuff_zone_status_ref.f_6_zone_buff_debuff_status;
-          icra_buff_debuff_zone_status_data.f_6_zone_status = icra_buff_debuff_zone_status_ref.f_6_zone_status;
-          icra_buff_debuff_zone_status_data.stamp = last_get_data_time_;
-
-          icra_buff_debuff_zone_status_pub_.publish(icra_buff_debuff_zone_status_data);
           break;
         }
         case rm_referee::RefereeCmdId::FIELD_EVENTS_CMD:
@@ -321,12 +299,6 @@ int Referee::unpack(uint8_t* rx_data)
             robot_buff.remaining_energy = 0;
 
           buff_pub_.publish(robot_buff);
-          break;
-        }
-        case rm_referee::RefereeCmdId::AERIAL_ROBOT_ENERGY_CMD:
-        {
-          rm_referee::AerialRobotEnergy aerial_robot_energy_ref;
-          memcpy(&aerial_robot_energy_ref, rx_data + 7, sizeof(rm_referee::AerialRobotEnergy));
           break;
         }
         case rm_referee::RefereeCmdId::ROBOT_HURT_CMD:
@@ -658,6 +630,7 @@ int Referee::unpack(uint8_t* rx_data)
           stack_overflow_pub_data.process_name = stack_overflow_ref.process_name;
           stack_overflow_pub_data.stamp = last_get_data_time_;
           power_management_process_stack_overflow_pub_.publish(stack_overflow_pub_data);
+          break;
         }
         case rm_referee::POWER_MANAGEMENT_UNKNOWN_EXCEPTION_CMD:
         {
@@ -679,11 +652,67 @@ int Referee::unpack(uint8_t* rx_data)
           break;
       }
       base_.referee_data_is_online_ = true;
-      last_get_data_time_ = ros::Time::now();
-      return frame_len;
+      return finish_unpack(frame_len);
     }
   }
-  return -1;
+  return finish_unpack(-1);
+}
+
+void Referee::recordReadCostUs(double us)
+{
+  if (!enable_perf_stats_)
+    return;
+  read_cost_us_samples_.push_back(us);
+  maybeLogPerfStats();
+}
+
+void Referee::recordUnpackCostUs(double us)
+{
+  if (!enable_perf_stats_)
+    return;
+  unpack_cost_us_samples_.push_back(us);
+  maybeLogPerfStats();
+}
+
+double Referee::calcPercentile(std::vector<double> samples, double q)
+{
+  if (samples.empty())
+    return 0.0;
+  std::sort(samples.begin(), samples.end());
+  const double clamped_q = std::max(0.0, std::min(1.0, q));
+  const size_t idx = static_cast<size_t>(clamped_q * static_cast<double>(samples.size() - 1));
+  return samples[idx];
+}
+
+void Referee::maybeLogPerfStats()
+{
+  if (!enable_perf_stats_)
+    return;
+
+  const ros::Time now = ros::Time::now();
+  const bool enough_samples = read_cost_us_samples_.size() >= static_cast<size_t>(perf_window_size_) ||
+                              unpack_cost_us_samples_.size() >= static_cast<size_t>(perf_window_size_);
+  const bool timeout = (now - last_perf_log_time_).toSec() >= perf_log_period_sec_;
+  if (!enough_samples && !timeout)
+    return;
+
+  if (!read_cost_us_samples_.empty())
+  {
+    ROS_INFO("[referee_perf] read_us n=%zu p50=%.1f p95=%.1f p99=%.1f", read_cost_us_samples_.size(),
+             calcPercentile(read_cost_us_samples_, 0.50), calcPercentile(read_cost_us_samples_, 0.95),
+             calcPercentile(read_cost_us_samples_, 0.99));
+    read_cost_us_samples_.clear();
+  }
+
+  if (!unpack_cost_us_samples_.empty())
+  {
+    ROS_INFO("[referee_perf] unpack_us n=%zu p50=%.1f p95=%.1f p99=%.1f", unpack_cost_us_samples_.size(),
+             calcPercentile(unpack_cost_us_samples_, 0.50), calcPercentile(unpack_cost_us_samples_, 0.95),
+             calcPercentile(unpack_cost_us_samples_, 0.99));
+    unpack_cost_us_samples_.clear();
+  }
+
+  last_perf_log_time_ = now;
 }
 
 void Referee::getRobotInfo()

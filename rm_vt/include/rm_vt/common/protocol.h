@@ -11,7 +11,9 @@ typedef enum
 {
   CUSTOM_CONTROLLER_CMD = 0x0302,  // custom_controller
   ROBOT_COMMAND_CMD = 0x0304,      // keyboard_data
-  ROBOT_TO_CUSTOM_CMD = 0x0309
+  ROBOT_TO_CUSTOM_CMD = 0x0309,
+  ROBOT_TO_CUSTOM_CMD_2 = 0x0310,
+  ROBOT_TO_CUSTOM_CMD_3 = 0x0311,
 } VideoTransmissionCmdId;
 
 typedef struct
