@@ -36,67 +36,147 @@
 //
 #include "rm_referee/referee.h"
 
-#include <algorithm>
-
 namespace rm_referee
 {
+bool Referee::ringPushByte(uint8_t byte)
+{
+  if (ring_buffer_.empty())
+    return true;
+  bool dropped = false;
+  if (ring_size_ == ring_buffer_.size())
+  {
+    ring_head_ = (ring_head_ + 1) % ring_buffer_.size();
+    ring_size_--;
+    dropped = true;
+  }
+  const size_t tail = (ring_head_ + ring_size_) % ring_buffer_.size();
+  ring_buffer_[tail] = byte;
+  ring_size_++;
+  return dropped;
+}
+
+void Referee::ringPopFront(size_t count)
+{
+  if (count >= ring_size_)
+  {
+    ring_head_ = 0;
+    ring_size_ = 0;
+    return;
+  }
+  ring_head_ = (ring_head_ + count) % ring_buffer_.size();
+  ring_size_ -= count;
+}
+
+uint8_t Referee::ringAt(size_t index) const
+{
+  return ring_buffer_[(ring_head_ + index) % ring_buffer_.size()];
+}
+
+int Referee::ringFindByte(uint8_t byte) const
+{
+  for (size_t i = 0; i < ring_size_; ++i)
+  {
+    if (ringAt(i) == byte)
+      return static_cast<int>(i);
+  }
+  return -1;
+}
+
+void Referee::ringCopyFront(size_t count, std::vector<uint8_t>& out) const
+{
+  out.resize(count);
+  for (size_t i = 0; i < count; ++i)
+    out[i] = ringAt(i);
+}
+
 // read data from referee
 void Referee::read()
 {
-  const ros::WallTime read_start = ros::WallTime::now();
-  const auto available = base_.serial_.available();
-  if (available == 0)
-    return;
+  int total_bytes_read = 0;
+  size_t dropped_bytes = 0;
+  while (true)
+  {
+    const auto available = base_.serial_.available();
+    if (available == 0)
+      break;
 
-  const auto bytes_read = base_.serial_.read(rx_buffer_, available);
-  if (bytes_read == 0)
-    return;
+    const auto bytes_read = base_.serial_.read(rx_buffer_, available);
+    if (bytes_read == 0)
+      break;
 
-  rx_len_ = static_cast<int>(bytes_read);
-  uint8_t temp_buffer[256] = { 0 };
-  int frame_len;
-  if (ros::Time::now() - last_get_data_time_ > ros::Duration(0.1))
-    base_.referee_data_is_online_ = false;
-  if (rx_len_ < k_unpack_buffer_length_)
-  {
-    for (int k_i = 0; k_i < k_unpack_buffer_length_ - rx_len_; ++k_i)
-      temp_buffer[k_i] = unpack_buffer_[k_i + rx_len_];
-    for (int k_i = 0; k_i < rx_len_; ++k_i)
-      temp_buffer[k_i + k_unpack_buffer_length_ - rx_len_] = rx_buffer_[k_i];
-    for (int k_i = 0; k_i < k_unpack_buffer_length_; ++k_i)
-      unpack_buffer_[k_i] = temp_buffer[k_i];
-  }
-  else
-  {
-    // Keep the latest bytes when the serial burst is larger than unpack window.
-    for (int k_i = 0; k_i < k_unpack_buffer_length_; ++k_i)
-      unpack_buffer_[k_i] = rx_buffer_[rx_len_ - k_unpack_buffer_length_ + k_i];
-  }
-  for (int k_i = 0; k_i < k_unpack_buffer_length_ - k_frame_length_; ++k_i)
-  {
-    if (unpack_buffer_[k_i] == 0xA5)
+    total_bytes_read += static_cast<int>(bytes_read);
+    for (size_t i = 0; i < bytes_read; ++i)
     {
-      frame_len = unpack(&unpack_buffer_[k_i]);
-      if (frame_len != -1)
-        k_i += frame_len - 1;
+      if (ringPushByte(rx_buffer_[i]))
+        dropped_bytes++;
     }
   }
+
+  if (total_bytes_read == 0)
+    return;
+
+  if (dropped_bytes > 0)
+    ROS_WARN_THROTTLE(1.0, "Referee ring buffer overflow, dropped %zu bytes.", dropped_bytes);
+
+  rx_len_ = total_bytes_read;
+  if (ros::Time::now() - last_get_data_time_ > ros::Duration(0.1))
+    base_.referee_data_is_online_ = false;
+
+  while (true)
+  {
+    if (ring_size_ < static_cast<size_t>(k_header_length_))
+      break;
+
+    const int sof_offset = ringFindByte(0xA5);
+    if (sof_offset < 0)
+    {
+      ringPopFront(ring_size_);
+      break;
+    }
+
+    if (sof_offset > 0)
+      ringPopFront(static_cast<size_t>(sof_offset));
+
+    if (ring_size_ < static_cast<size_t>(k_header_length_))
+      break;
+
+    uint8_t header[5];
+    for (int i = 0; i < k_header_length_; ++i)
+      header[i] = ringAt(static_cast<size_t>(i));
+
+    if (!static_cast<bool>(base_.verifyCRC8CheckSum(header, k_header_length_)))
+    {
+      ringPopFront(1);
+      continue;
+    }
+
+    rm_referee::FrameHeader frame_header;
+    memcpy(&frame_header, header, k_header_length_);
+    const int frame_len = frame_header.data_length + k_header_length_ + k_cmd_id_length_ + k_tail_length_;
+    if (frame_len < k_header_length_ + k_cmd_id_length_ + k_tail_length_ || frame_len > k_max_frame_length_)
+    {
+      ringPopFront(1);
+      continue;
+    }
+
+    if (ring_size_ < static_cast<size_t>(frame_len))
+      break;
+
+    std::vector<uint8_t> frame;
+    ringCopyFront(static_cast<size_t>(frame_len), frame);
+    const int parsed_len = unpack(frame.data());
+    if (parsed_len != -1)
+      ringPopFront(static_cast<size_t>(frame_len));
+    else
+      ringPopFront(1);
+  }
+
   getRobotInfo();
   clearRxBuffer();
-
-  const double read_cost_us = (ros::WallTime::now() - read_start).toSec() * 1e6;
-  recordReadCostUs(read_cost_us);
 }
 
 int Referee::unpack(uint8_t* rx_data)
 {
-  const ros::WallTime unpack_start = ros::WallTime::now();
-  auto finish_unpack = [&](int ret) {
-    const double unpack_cost_us = (ros::WallTime::now() - unpack_start).toSec() * 1e6;
-    recordUnpackCostUs(unpack_cost_us);
-    return ret;
-  };
-
   uint16_t cmd_id;
   int frame_len;
   rm_referee::FrameHeader frame_header;
@@ -107,11 +187,11 @@ int Referee::unpack(uint8_t* rx_data)
     if (frame_header.data_length > 256)  // temporary and inaccurate value
     {
       ROS_INFO("discard possible wrong frames, data length: %d", frame_header.data_length);
-      return finish_unpack(0);
+      return 0;
     }
     frame_len = frame_header.data_length + k_header_length_ + k_cmd_id_length_ + k_tail_length_;
-    if (frame_len > k_unpack_buffer_length_)
-      return finish_unpack(-1);
+    if (frame_len > k_max_frame_length_)
+      return -1;
 
     if (base_.verifyCRC16CheckSum(rx_data, frame_len) == 1)
     {
@@ -652,67 +732,10 @@ int Referee::unpack(uint8_t* rx_data)
           break;
       }
       base_.referee_data_is_online_ = true;
-      return finish_unpack(frame_len);
+      return frame_len;
     }
   }
-  return finish_unpack(-1);
-}
-
-void Referee::recordReadCostUs(double us)
-{
-  if (!enable_perf_stats_)
-    return;
-  read_cost_us_samples_.push_back(us);
-  maybeLogPerfStats();
-}
-
-void Referee::recordUnpackCostUs(double us)
-{
-  if (!enable_perf_stats_)
-    return;
-  unpack_cost_us_samples_.push_back(us);
-  maybeLogPerfStats();
-}
-
-double Referee::calcPercentile(std::vector<double> samples, double q)
-{
-  if (samples.empty())
-    return 0.0;
-  std::sort(samples.begin(), samples.end());
-  const double clamped_q = std::max(0.0, std::min(1.0, q));
-  const size_t idx = static_cast<size_t>(clamped_q * static_cast<double>(samples.size() - 1));
-  return samples[idx];
-}
-
-void Referee::maybeLogPerfStats()
-{
-  if (!enable_perf_stats_)
-    return;
-
-  const ros::Time now = ros::Time::now();
-  const bool enough_samples = read_cost_us_samples_.size() >= static_cast<size_t>(perf_window_size_) ||
-                              unpack_cost_us_samples_.size() >= static_cast<size_t>(perf_window_size_);
-  const bool timeout = (now - last_perf_log_time_).toSec() >= perf_log_period_sec_;
-  if (!enough_samples && !timeout)
-    return;
-
-  if (!read_cost_us_samples_.empty())
-  {
-    ROS_INFO("[referee_perf] read_us n=%zu p50=%.1f p95=%.1f p99=%.1f", read_cost_us_samples_.size(),
-             calcPercentile(read_cost_us_samples_, 0.50), calcPercentile(read_cost_us_samples_, 0.95),
-             calcPercentile(read_cost_us_samples_, 0.99));
-    read_cost_us_samples_.clear();
-  }
-
-  if (!unpack_cost_us_samples_.empty())
-  {
-    ROS_INFO("[referee_perf] unpack_us n=%zu p50=%.1f p95=%.1f p99=%.1f", unpack_cost_us_samples_.size(),
-             calcPercentile(unpack_cost_us_samples_, 0.50), calcPercentile(unpack_cost_us_samples_, 0.95),
-             calcPercentile(unpack_cost_us_samples_, 0.99));
-    unpack_cost_us_samples_.clear();
-  }
-
-  last_perf_log_time_ = now;
+  return -1;
 }
 
 void Referee::getRobotInfo()

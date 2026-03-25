@@ -10,9 +10,7 @@ int main(int argc, char** argv)
   ros::init(argc, argv, "rm_referee");  // rm_referee
   ros::NodeHandle nh("~");
   rm_referee::Referee referee(nh);
-  double read_loop_hz = 200.0;
-  nh.param("read_loop_hz", read_loop_hz, 200.0);
-  ros::Rate loop_rate(read_loop_hz);
+  ros::Rate loop_rate(200.0);
   while (ros::ok())
   {
     ros::spinOnce();
