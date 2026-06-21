@@ -207,7 +207,7 @@ public:
   NonlinearTrackingDifferentiator(T r, T h) : r_(r), h_(h)
   {
   }
-  void update(T v, T v_dot, T af)
+  void update(T v, T v_dot)
   {
     if ((v > 3. && x1_ < -3.) || (v < -3 && x1_ > 3))
     {
@@ -218,7 +218,7 @@ public:
     {
       T y = x1_ - v + h_ * x2_;
       T a0 = sqrt(h_ * h_ * r_ * r_ + 8 * r_ * fabs(y));
-      T a = x2_ + af * (a0 - h_ * r_) * (y > 0 ? 1 : -1);
+      T a = x2_ + 0.5 * (a0 - h_ * r_) * (y > 0 ? 1 : -1);
       T u = fabs(a) > h_ * r_ ? -r_ * (a > 0 ? 1 : -1) : -r_ * a / (h_ * r_);
       x1_ = x1_ + h_ * (x2_ + v_dot);
       x2_ = x2_ + h_ * u;
