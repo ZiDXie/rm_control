@@ -7,6 +7,7 @@
 #include <rm_common/ros_utilities.h>
 #include <ros/timer.h>
 #include <rm_common/decision/command_sender.h>
+#include <std_msgs/Int32.h>
 
 #include "rm_referee/ui/ui_base.h"
 #include "rm_referee/ui/trigger_change_ui.h"
@@ -66,6 +67,9 @@ public:
   virtual void radarToRefereeCallBack(const rm_msgs::RadarToSentryConstPtr& data);
   virtual void customizeDisplayCmdCallBack(const std_msgs::UInt32ConstPtr& data);
   virtual void visualizeStateDataCallBack(const rm_msgs::VisualizeStateDataConstPtr& data);
+  virtual void relocalizeProgressCallback(const std_msgs::Int32ConstPtr& data);
+  virtual void heroLegDataCallback(const rm_msgs::ChassisActiveSusCmd::ConstPtr& data);
+  virtual void deployDistanceCallBack(const geometry_msgs::PointConstPtr& data);
 
   // send  ui
   void sendSerialDataCallback();
@@ -98,6 +102,9 @@ public:
   ros::Subscriber shoot_cmd_sub_;
   ros::Subscriber customize_display_cmd_sub_;
   ros::Subscriber visualize_state_data_sub_;
+  ros::Subscriber hero_leg_data_sub_;
+  ros::Subscriber deploy_distance_sub_;
+  ros::Subscriber relocalize_progress_sub_;
 
   ChassisTriggerChangeUi* chassis_trigger_change_ui_{};
   ShooterTriggerChangeUi* shooter_trigger_change_ui_{};
@@ -108,6 +115,7 @@ public:
   FrictionSpeedTriggerChangeUi* friction_speed_trigger_change_ui_{};
   GyroTriggerChangeUi* gyro_trigger_change_ui_{};
   ZipTriggerChangeUi* zip_trigger_change_ui_{};
+  HeroLegTriggerChangeUi* hero_leg_trigger_change_ui_{};
 
   BulletTimeChangeUi* bullet_time_change_ui_{};
   CapacitorTimeChangeUi* capacitor_time_change_ui_{};
@@ -124,6 +132,9 @@ public:
   TargetDistanceTimeChangeUi* target_distance_time_change_ui_{};
   FriendBulletsTimeChangeGroupUi* friend_bullets_time_change_group_ui_{};
   TargetHpTimeChangeUi* target_hp_time_change_ui_{};
+  RelocalizeProgressTimeChangeUi* relocalize_progress_time_change_ui_{};
+  DeployDistanceTimeChangeUi* deploy_distance_time_change_ui_{};
+  HeroLegTimeChangeUi* hero_leg_time_change_ui_{};
 
   DroneTowardsTimeChangeGroupUi* drone_towards_time_change_group_ui_{};
   StringTriggerChangeUi *servo_mode_trigger_change_ui_{}, *stone_num_trigger_change_ui_{},
