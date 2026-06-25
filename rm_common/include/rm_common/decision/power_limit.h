@@ -98,7 +98,7 @@ public:
       safety_power_ = 45 + robot_id_ * 5;
     else
       safety_power_ = safety_power > 0 ? safety_power : safety_power_;
-    ROS_WARN("update safety power: %.0f", safety_power_);
+    ROS_WARN_THROTTLE(2.0, "update safety power: %.0f", safety_power_);
   }
 
   void updateBurstPower(int burst_power)
@@ -232,6 +232,11 @@ private:
   void normal(rm_msgs::ChassisCmd& chassis_cmd)
   {
     allow_use_cap_ = false;
+    if (chassis_cmd.power_limit > max_power_limit_)
+    {
+      chassis_cmd.power_limit = max_power_limit_;
+      return;
+    }
     if (cap_state_ != ALLOFF && cap_energy_ > disable_normal_cap_threshold_ &&
         chassis_power_buffer_ > power_buffer_threshold_)
     {
@@ -241,8 +246,6 @@ private:
     {
       chassis_cmd.power_limit = chassis_power_limit_;
     }
-    if (chassis_cmd.power_limit > max_power_limit_)
-      chassis_cmd.power_limit = max_power_limit_;
   }
 
   void zero(rm_msgs::ChassisCmd& chassis_cmd)
@@ -252,6 +255,16 @@ private:
 
   void burst(rm_msgs::ChassisCmd& chassis_cmd, bool is_gyro)
   {
+    if (chassis_cmd.power_limit > max_power_limit_)
+    {
+      chassis_cmd.power_limit = max_power_limit_;
+      return;
+    }
+    if (chassis_power_limit_ > burst_power_ || chassis_power_limit_ > gyro_power_)
+    {
+      chassis_cmd.power_limit = chassis_power_limit_;
+      return;
+    }
     if (cap_state_ != ALLOFF && cap_energy_ > capacitor_threshold_ && chassis_power_buffer_ > power_buffer_threshold_)
     {
       if (is_gyro)
