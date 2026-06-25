@@ -76,10 +76,14 @@ public:
       ROS_ERROR("Burst power no defined (namespace: %s)", nh.getNamespace().c_str());
     if (!nh.getParam("gyro_power", gyro_power_))
       ROS_ERROR("Gyro power no defined (namespace: %s)", nh.getNamespace().c_str());
+    if (!nh.getParam("upstairs_power", upstairs_power_))
+      ROS_ERROR("Upstairs power no defined (namespace: %s)", nh.getNamespace().c_str());
     if (!nh.getParam("max_power_limit", max_power_limit_))
       ROS_ERROR("max power limit no defined (namespace: %s)", nh.getNamespace().c_str());
     if (!nh.getParam("robot_type", robot_type_))
       ROS_WARN("Only standard and hero robot types are supported (namespace: %s)", nh.getNamespace().c_str());
+    default_max_power_limit_ = max_power_limit_;
+    default_burst_power_ = burst_power_;
   }
   typedef enum
   {
@@ -97,14 +101,14 @@ public:
     else if (robot_type_ == "hero")
       safety_power_ = 45 + robot_id_ * 5;
     else
-      safety_power_ = safety_power > 0 ? safety_power : safety_power_;
+      safety_power_ = safety_power;
     ROS_WARN_THROTTLE(2.0, "update safety power: %.0f", safety_power_);
   }
 
-  void updateBurstPower(int burst_power)
+  void updateBurstPower(const double& burst_power_limit)
   {
-    burst_power_ = burst_power > 0 ? burst_power : burst_power_;
-    ROS_INFO("update burst power: %.0f", burst_power_);
+    burst_power_ = burst_power_limit;
+    ROS_WARN("update burst power: %.0f", burst_power_);
   }
 
   void updateState(uint8_t state)
@@ -149,6 +153,20 @@ public:
   uint8_t getState()
   {
     return expect_state_;
+  }
+
+  void setUpstairsPower(bool upstairs)
+  {
+    if (upstairs)
+    {
+      max_power_limit_ = upstairs_power_;
+      burst_power_ = upstairs_power_;
+    }
+    else
+    {
+      max_power_limit_ = default_max_power_limit_;
+      burst_power_ = default_burst_power_;
+    }
   }
 
   void setGyroPower(rm_msgs::ChassisCmd& chassis_cmd)
@@ -232,9 +250,14 @@ private:
   void normal(rm_msgs::ChassisCmd& chassis_cmd)
   {
     allow_use_cap_ = false;
-    if (chassis_cmd.power_limit > max_power_limit_)
+    if (chassis_power_limit_ > max_power_limit_)
     {
-      chassis_cmd.power_limit = max_power_limit_;
+      chassis_cmd.power_limit = max_power_limit_;  // Unlimit power limit in referee
+      return;
+    }
+    if (chassis_power_limit_ > burst_power_ || chassis_power_limit_ > gyro_power_)
+    {
+      chassis_cmd.power_limit = chassis_power_limit_;  // When revive.
       return;
     }
     if (cap_state_ != ALLOFF && cap_energy_ > disable_normal_cap_threshold_ &&
@@ -255,7 +278,7 @@ private:
 
   void burst(rm_msgs::ChassisCmd& chassis_cmd, bool is_gyro)
   {
-    if (chassis_cmd.power_limit > max_power_limit_)
+    if (chassis_power_limit_ > max_power_limit_)
     {
       chassis_cmd.power_limit = max_power_limit_;
       return;
@@ -297,7 +320,8 @@ private:
   double enable_burst_cap_threshold_{}, disable_burst_cap_threshold_{};
   double enable_gyro_cap_threshold_{}, disable_gyro_cap_threshold_{};
   double disable_normal_cap_threshold_{};
-  double extra_power_{}, burst_power_{}, gyro_power_{};
+  double extra_power_{}, burst_power_{}, gyro_power_{}, upstairs_power_{};
+  double default_max_power_limit_{}, default_burst_power_{};
 
   bool allow_gyro_cap_{ false }, allow_use_cap_{ false };
   double posture_power_scale_{ 1.0 };
