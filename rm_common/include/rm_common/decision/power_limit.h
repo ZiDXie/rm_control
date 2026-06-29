@@ -80,7 +80,7 @@ public:
       ROS_ERROR("Upstairs power no defined (namespace: %s)", nh.getNamespace().c_str());
     if (!nh.getParam("max_power_limit", max_power_limit_))
       ROS_ERROR("max power limit no defined (namespace: %s)", nh.getNamespace().c_str());
-    if (!nh.getParam("robot_type", robot_type_))
+    if (!ros::param::get("/rm_manual/robot_type", robot_type_))
       ROS_WARN("Only standard and hero robot types are supported (namespace: %s)", nh.getNamespace().c_str());
     default_max_power_limit_ = max_power_limit_;
     default_burst_power_ = burst_power_;
@@ -255,11 +255,6 @@ private:
       chassis_cmd.power_limit = max_power_limit_;  // Unlimit power limit in referee
       return;
     }
-    if (chassis_power_limit_ > burst_power_ || chassis_power_limit_ > gyro_power_)
-    {
-      chassis_cmd.power_limit = chassis_power_limit_;  // When revive.
-      return;
-    }
     if (cap_state_ != ALLOFF && cap_energy_ > disable_normal_cap_threshold_ &&
         chassis_power_buffer_ > power_buffer_threshold_)
     {
@@ -278,11 +273,6 @@ private:
 
   void burst(rm_msgs::ChassisCmd& chassis_cmd, bool is_gyro)
   {
-    if (chassis_power_limit_ > max_power_limit_)
-    {
-      chassis_cmd.power_limit = max_power_limit_;
-      return;
-    }
     if (chassis_power_limit_ > burst_power_ || chassis_power_limit_ > gyro_power_)
     {
       chassis_cmd.power_limit = chassis_power_limit_;
