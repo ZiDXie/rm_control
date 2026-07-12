@@ -244,7 +244,6 @@ private:
   void charge(rm_msgs::ChassisCmd& chassis_cmd)
   {
     allow_use_cap_ = false;
-    chassis_cmd.power_limit = chassis_power_limit_ * 0.70;
   }
 
   void normal(rm_msgs::ChassisCmd& chassis_cmd)
@@ -273,7 +272,7 @@ private:
 
   void burst(rm_msgs::ChassisCmd& chassis_cmd, bool is_gyro)
   {
-    if (chassis_power_limit_ > burst_power_ || chassis_power_limit_ > gyro_power_)
+    if (chassis_power_limit_ != 65535 && (chassis_power_limit_ > burst_power_ || chassis_power_limit_ > gyro_power_))
     {
       chassis_cmd.power_limit = chassis_power_limit_;
       return;
