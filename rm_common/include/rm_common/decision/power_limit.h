@@ -78,11 +78,8 @@ public:
       ROS_ERROR("Gyro power no defined (namespace: %s)", nh.getNamespace().c_str());
     if (!nh.getParam("upstairs_power", upstairs_power_))
       ROS_ERROR("Upstairs power no defined (namespace: %s)", nh.getNamespace().c_str());
-    if (!nh.getParam("max_power_limit", max_power_limit_))
-      ROS_ERROR("max power limit no defined (namespace: %s)", nh.getNamespace().c_str());
     if (!ros::param::get("/rm_manual/robot_type", robot_type_))
       ROS_WARN("Only standard and hero robot types are supported (namespace: %s)", nh.getNamespace().c_str());
-    default_max_power_limit_ = max_power_limit_;
     default_burst_power_ = burst_power_;
   }
   typedef enum
@@ -159,12 +156,10 @@ public:
   {
     if (upstairs)
     {
-      max_power_limit_ = upstairs_power_;
       burst_power_ = upstairs_power_;
     }
     else
     {
-      max_power_limit_ = default_max_power_limit_;
       burst_power_ = default_burst_power_;
     }
   }
@@ -249,9 +244,9 @@ private:
   void normal(rm_msgs::ChassisCmd& chassis_cmd)
   {
     allow_use_cap_ = false;
-    if (chassis_power_limit_ > max_power_limit_)
+    if (chassis_power_limit_ == 65535)
     {
-      chassis_cmd.power_limit = max_power_limit_;  // Unlimit power limit in referee
+      expect_state_ = BURST;  // Unlimit power limit in referee
       return;
     }
     if (cap_state_ != ALLOFF && cap_energy_ > disable_normal_cap_threshold_ &&
@@ -301,7 +296,6 @@ private:
   int chassis_power_buffer_{};
   int robot_id_{}, robot_level_{};
   int chassis_power_limit_{};
-  int max_power_limit_{ 220 };
   float cap_energy_{};
   double safety_power_{};
   double capacitor_threshold_{};
@@ -310,7 +304,7 @@ private:
   double enable_gyro_cap_threshold_{}, disable_gyro_cap_threshold_{};
   double disable_normal_cap_threshold_{};
   double extra_power_{}, burst_power_{}, gyro_power_{}, upstairs_power_{};
-  double default_max_power_limit_{}, default_burst_power_{};
+  double default_burst_power_{};
 
   bool allow_gyro_cap_{ false }, allow_use_cap_{ false };
   double posture_power_scale_{ 1.0 };
