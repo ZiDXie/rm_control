@@ -391,11 +391,11 @@ void TargetTriggerChangeUi::updateConfig(uint8_t main_mode, bool main_flag, uint
 {
   graph_->setContent(getTargetState(main_mode, sub_mode));
   if (main_flag)
-    graph_->setColor(rm_referee::GraphColor::ORANGE);
+    graph_->setColor(rm_referee::GraphColor::WHITE);
   else if (sub_flag)
-    graph_->setColor(rm_referee::GraphColor::PINK);
+    graph_->setColor(rm_referee::GraphColor::WHITE);
   else
-    graph_->setColor(rm_referee::GraphColor::CYAN);
+    graph_->setColor(rm_referee::GraphColor::WHITE);
 }
 
 std::string TargetTriggerChangeUi::getTargetState(uint8_t target, uint8_t armor_target)

@@ -34,6 +34,8 @@ RefereeBase::RefereeBase(ros::NodeHandle& nh, Base& base) : base_(base), nh_(nh)
   RefereeBase::camera_name_sub_ = nh.subscribe("/camera_name", 10, &RefereeBase::cameraNameCallBack, this);
   RefereeBase::balance_state_sub_ = nh.subscribe("/state", 10, &RefereeBase::balanceStateCallback, this);
   RefereeBase::track_sub_ = nh.subscribe<rm_msgs::TrackData>("/track", 10, &RefereeBase::trackCallBack, this);
+  RefereeBase::enemy_color_sub_ =
+      nh.subscribe<std_msgs::Bool>("/sp_vision/enemy_color", 10, &RefereeBase::enemycolorCallBack, this);
   RefereeBase::deploy_distance_sub_ =
       nh.subscribe<geometry_msgs::Point>("/base2target", 10, &RefereeBase::deployDistanceCallBack, this);
   RefereeBase::map_sentry_sub_ =
@@ -158,6 +160,8 @@ RefereeBase::RefereeBase(ros::NodeHandle& nh, Base& base) : base_(base), nh_(nh)
       if (rpc_value[i]["name"] == "drone_towards")
         drone_towards_time_change_group_ui_ =
             new DroneTowardsTimeChangeGroupUi(rpc_value[i], base_, &graph_queue_, &character_queue_);
+      if (rpc_value[i]["name"] == "enemy_color")
+        enemy_color_time_change_ui_ = new EnemyColorTimeChangeUi(rpc_value[i], base_, &graph_queue_, &character_queue_);
       if (rpc_value[i]["name"] == "friend_bullets")
         friend_bullets_time_change_group_ui_ =
             new FriendBulletsTimeChangeGroupUi(rpc_value[i], base_, &graph_queue_, &character_queue_);
@@ -290,6 +294,8 @@ void RefereeBase::addUi()
   }
   if (target_distance_time_change_ui_)
     target_distance_time_change_ui_->addForQueue();
+  if (enemy_color_time_change_ui_)
+    enemy_color_time_change_ui_->addForQueue();
   if (deploy_distance_time_change_ui_)
     deploy_distance_time_change_ui_->addForQueue();
   if (hero_leg_time_change_ui_)
@@ -486,6 +492,11 @@ void RefereeBase::heroLegDataCallback(const rm_msgs::ChassisActiveSusCmd::ConstP
     hero_leg_trigger_change_ui_->updateMode(data->mode);
   if (hero_leg_time_change_ui_ && !is_adding_)
     hero_leg_time_change_ui_->updateFeedforwardCountdown(data->feedforward_countdown);
+}
+void RefereeBase::enemycolorCallBack(const std_msgs::BoolConstPtr& data)
+{
+  if (enemy_color_time_change_ui_ && !is_adding_)
+    enemy_color_time_change_ui_->updateEnemyColorData(data);
 }
 void RefereeBase::chassisCmdDataCallback(const rm_msgs::ChassisCmd::ConstPtr& data)
 {

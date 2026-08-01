@@ -55,6 +55,7 @@ public:
   virtual void radarDataCallBack(const std_msgs::Int8MultiArrayConstPtr& data);
   virtual void cameraNameCallBack(const std_msgs::StringConstPtr& data);
   virtual void trackCallBack(const rm_msgs::TrackDataConstPtr& data);
+  virtual void enemycolorCallBack(const std_msgs::BoolConstPtr& data);
   virtual void balanceStateCallback(const rm_msgs::BalanceStateConstPtr& data);
   virtual void radarReceiveCallback(const rm_msgs::ClientMapReceiveData::ConstPtr& data);
   virtual void mapSentryCallback(const rm_msgs::MapSentryDataConstPtr& data);
@@ -105,6 +106,7 @@ public:
   ros::Subscriber hero_leg_data_sub_;
   ros::Subscriber deploy_distance_sub_;
   ros::Subscriber relocalize_progress_sub_;
+  ros::Subscriber enemy_color_sub_;
 
   ChassisTriggerChangeUi* chassis_trigger_change_ui_{};
   ShooterTriggerChangeUi* shooter_trigger_change_ui_{};
@@ -135,6 +137,7 @@ public:
   RelocalizeProgressTimeChangeUi* relocalize_progress_time_change_ui_{};
   DeployDistanceTimeChangeUi* deploy_distance_time_change_ui_{};
   HeroLegTimeChangeUi* hero_leg_time_change_ui_{};
+  EnemyColorTimeChangeUi* enemy_color_time_change_ui_{};
 
   DroneTowardsTimeChangeGroupUi* drone_towards_time_change_group_ui_{};
   StringTriggerChangeUi *servo_mode_trigger_change_ui_{}, *stone_num_trigger_change_ui_{},
