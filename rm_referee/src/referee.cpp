@@ -50,7 +50,7 @@ void Referee::read()
     return;
   uint8_t temp_buffer[256] = { 0 };
   int frame_len;
-  if (ros::Time::now() - last_get_data_time_ > ros::Duration(0.1))
+  if (ros::Time::now() - last_get_data_time_ > ros::Duration(5.0))
     base_.referee_data_is_online_ = false;
   if (rx_len_ < k_unpack_buffer_length_)
   {
@@ -127,9 +127,12 @@ int Referee::unpack(uint8_t* rx_data)
           game_robot_hp_data.ally_2_robot_hp = game_robot_hp_ref.ally_2_robot_hp;
           game_robot_hp_data.ally_3_robot_hp = game_robot_hp_ref.ally_3_robot_hp;
           game_robot_hp_data.ally_4_robot_hp = game_robot_hp_ref.ally_4_robot_hp;
+          game_robot_hp_data.damage_difference = game_robot_hp_ref.damage_difference;
           game_robot_hp_data.ally_7_robot_hp = game_robot_hp_ref.ally_7_robot_hp;
           game_robot_hp_data.ally_outpost_hp = game_robot_hp_ref.ally_outpost_hp;
           game_robot_hp_data.ally_base_hp = game_robot_hp_ref.ally_base_hp;
+          game_robot_hp_data.enemy_outpost_hp = game_robot_hp_ref.enemy_outpost_hp;
+          game_robot_hp_data.enemy_base_hp = game_robot_hp_ref.enemy_base_hp;
           game_robot_hp_data.stamp = last_get_data_time_;
 
           referee_ui_.updateGameRobotHpDataCallBack(game_robot_hp_data);
@@ -209,6 +212,7 @@ int Referee::unpack(uint8_t* rx_data)
           game_robot_status_data.shooter_cooling_limit = game_robot_status_ref.shooter_cooling_limit;
           game_robot_status_data.shooter_cooling_rate = game_robot_status_ref.shooter_cooling_rate;
           game_robot_status_data.chassis_power_limit = game_robot_status_ref.chassis_power_limit;
+          game_robot_status_data.bullet_speed_limit = game_robot_status_ref.bullet_speed_limit;
           game_robot_status_data.mains_power_chassis_output = game_robot_status_ref.mains_power_chassis_output;
           game_robot_status_data.mains_power_gimbal_output = game_robot_status_ref.mains_power_gimbal_output;
           game_robot_status_data.mains_power_shooter_output = game_robot_status_ref.mains_power_shooter_output;
@@ -439,6 +443,10 @@ int Referee::unpack(uint8_t* rx_data)
           radar_mark_data.own_standard_4_special_mark = mark_bit(9);
           radar_mark_data.own_aerial_special_mark = mark_bit(10);
           radar_mark_data.own_sentry_special_mark = mark_bit(11);
+          radar_mark_data.enemy_aerial_targeted_by_own_radar = mark_bit(12);
+          radar_mark_data.enemy_aerial_in_countermeasure = mark_bit(13);
+          radar_mark_data.own_aerial_targeted_by_enemy_radar = mark_bit(14);
+          radar_mark_data.own_aerial_in_countermeasure = mark_bit(15);
           radar_mark_data.mark_hero_progress = radar_mark_data.enemy_hero_vulnerable;
           radar_mark_data.mark_engineer_progress = radar_mark_data.enemy_engineer_vulnerable;
           radar_mark_data.mark_standard_3_progress = radar_mark_data.enemy_standard_3_vulnerable;
@@ -546,6 +554,7 @@ int Referee::unpack(uint8_t* rx_data)
           memcpy(&sentry_info_ref, rx_data + 7, sizeof(rm_referee::SentryInfo));
           const uint32_t sentry_info_bits = sentry_info_ref.sentry_info;
           const uint16_t sentry_info_2_bits = sentry_info_ref.sentry_info_2;
+          const uint64_t sentry_info_3_bits = sentry_info_ref.sentry_info_3;
 
           sentry_info.sentry_info = sentry_info_ref.sentry_info;
           sentry_info.sentry_info_2 = sentry_info_ref.sentry_info_2;
@@ -559,6 +568,18 @@ int Referee::unpack(uint8_t* rx_data)
           sentry_info.remaining_bullets_can_supply = static_cast<uint16_t>((sentry_info_2_bits >> 1) & 0x7FFu);
           sentry_info.sentry_mode = static_cast<uint8_t>((sentry_info_2_bits >> 12) & 0x3u);
           sentry_info.can_activate_energy_mechanism = static_cast<bool>((sentry_info_2_bits >> 14) & 0x1u);
+          sentry_info.is_enhanced_posture = static_cast<bool>((sentry_info_2_bits >> 15) & 0x1u);
+          sentry_info.offensive_posture_remaining_time_before_weakening =
+              static_cast<uint8_t>(sentry_info_3_bits & 0xFFu);
+          sentry_info.defensive_posture_remaining_time_before_weakening =
+              static_cast<uint8_t>((sentry_info_3_bits >> 8) & 0xFFu);
+          sentry_info.mobile_posture_remaining_time_before_weakening =
+              static_cast<uint8_t>((sentry_info_3_bits >> 16) & 0xFFu);
+          sentry_info.enhanced_offensive_posture_remaining_time =
+              static_cast<uint8_t>((sentry_info_3_bits >> 32) & 0xFFu);
+          sentry_info.enhanced_defensive_posture_remaining_time =
+              static_cast<uint8_t>((sentry_info_3_bits >> 40) & 0xFFu);
+          sentry_info.enhanced_mobile_posture_remaining_time = static_cast<uint8_t>((sentry_info_3_bits >> 48) & 0xFFu);
           sentry_info_pub_.publish(sentry_info);
           break;
         }
@@ -678,6 +699,11 @@ int Referee::unpack(uint8_t* rx_data)
           enemy_robot_buff_data.sentry_negative_defense_buff = enemy_robot_buff_ref.sentry_negative_defense_buff;
           enemy_robot_buff_data.sentry_attack_buff = enemy_robot_buff_ref.sentry_attack_buff;
           enemy_robot_buff_data.sentry_posture = enemy_robot_buff_ref.sentry_posture;
+          enemy_robot_buff_data.hero_main_status = enemy_robot_buff_ref.hero_main_status;
+          enemy_robot_buff_data.engineer_main_status = enemy_robot_buff_ref.engineer_main_status;
+          enemy_robot_buff_data.infantry_3_main_status = enemy_robot_buff_ref.infantry_3_main_status;
+          enemy_robot_buff_data.infantry_4_main_status = enemy_robot_buff_ref.infantry_4_main_status;
+          enemy_robot_buff_data.sentry_main_status = enemy_robot_buff_ref.sentry_main_status;
           enemy_robot_buff_data.stamp = last_get_data_time_;
           radar_wireless_enemy_robot_buff_pub_.publish(enemy_robot_buff_data);
           break;

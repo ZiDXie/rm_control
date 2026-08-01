@@ -5,9 +5,11 @@
 #pragma once
 
 #include <rm_common/ros_utilities.h>
-#include <ros/timer.h>
 #include <rm_common/decision/command_sender.h>
+#include <vector>
+#include <ros/timer.h>
 #include <std_msgs/Int32.h>
+#include <std_msgs/Float32MultiArray.h>
 
 #include "rm_referee/ui/ui_base.h"
 #include "rm_referee/ui/trigger_change_ui.h"
@@ -57,6 +59,7 @@ public:
   virtual void trackCallBack(const rm_msgs::TrackDataConstPtr& data);
   virtual void enemycolorCallBack(const std_msgs::BoolConstPtr& data);
   virtual void balanceStateCallback(const rm_msgs::BalanceStateConstPtr& data);
+  virtual void leggedChassisStatusCallback(const rm_msgs::LeggedChassisStatusConstPtr& data);
   virtual void radarReceiveCallback(const rm_msgs::ClientMapReceiveData::ConstPtr& data);
   virtual void mapSentryCallback(const rm_msgs::MapSentryDataConstPtr& data);
   virtual void sentryAttackingTargetCallback(const rm_msgs::SentryAttackingTargetConstPtr& data);
@@ -92,6 +95,7 @@ public:
   ros::Subscriber camera_name_sub_;
   ros::Subscriber track_sub_;
   ros::Subscriber balance_state_sub_;
+  ros::Subscriber legged_chassis_status_sub_;
   ros::Subscriber radar_receive_sub_;
   ros::Subscriber map_sentry_sub_;
   ros::Subscriber sentry_to_referee_sub_;
@@ -105,8 +109,8 @@ public:
   ros::Subscriber visualize_state_data_sub_;
   ros::Subscriber hero_leg_data_sub_;
   ros::Subscriber deploy_distance_sub_;
-  ros::Subscriber relocalize_progress_sub_;
   ros::Subscriber enemy_color_sub_;
+  ros::Subscriber relocalize_progress_sub_;
 
   ChassisTriggerChangeUi* chassis_trigger_change_ui_{};
   ShooterTriggerChangeUi* shooter_trigger_change_ui_{};
@@ -127,6 +131,7 @@ public:
   RotationTimeChangeUi* rotation_time_change_ui_{};
   LaneLineTimeChangeGroupUi* lane_line_time_change_ui_{};
   BalancePitchTimeChangeGroupUi* balance_pitch_time_change_group_ui_{};
+  std::vector<LegThetaTimeChangeGroupUi*> leg_theta_time_change_group_uis_{};
   PitchAngleTimeChangeUi* pitch_angle_time_change_ui_{};
   ImageTransmissionAngleTimeChangeUi* image_transmission_angle_time_change_ui_{};
   JointPositionTimeChangeUi *engineer_joint1_time_change_ui{}, *engineer_joint2_time_change_ui{},
@@ -152,6 +157,7 @@ public:
   ExceedBulletSpeedFlashUi* exceed_bullet_speed_flash_ui_{};
   CustomizeDisplayFlashUi* customize_display_flash_ui_{};
   BurstFlashUi* burst_flash_ui_{};
+  CapacityRunOutFlashUi* capacity_run_out_flash_ui_{};
 
   InteractiveSender* interactive_data_sender_{};
   CustomInfoSender* custom_info_sender{};

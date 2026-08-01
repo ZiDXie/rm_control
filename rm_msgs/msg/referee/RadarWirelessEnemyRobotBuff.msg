@@ -29,4 +29,10 @@ uint8 sentry_negative_defense_buff
 uint16 sentry_attack_buff
 uint8 sentry_posture
 
+uint8 hero_main_status
+uint8 engineer_main_status
+uint8 infantry_3_main_status
+uint8 infantry_4_main_status
+uint8 sentry_main_status
+
 time stamp

@@ -6,6 +6,8 @@
 
 #include "rm_referee/ui/ui_base.h"
 
+#include <rm_msgs/PowerManagementSampleAndStatusData.h>
+
 namespace rm_referee
 {
 class FlashUi : public UiBase
@@ -157,5 +159,58 @@ public:
 private:
   void display(const ros::Time& time) override;
   ros::Time start_burst_time_;
+};
+
+class CapacityRunOutFlashUi : public FlashUi
+{
+public:
+  explicit CapacityRunOutFlashUi(XmlRpc::XmlRpcValue& rpc_value, Base& base, std::deque<Graph>* graph_queue,
+                                 std::deque<Graph>* character_queue)
+    : FlashUi(rpc_value, base, "capacity_run_out", graph_queue, character_queue)
+  {
+    // Defaults assume capacity_remain_charge is normalized to [0, 1].
+    threshold_low_ = 0.2;
+    threshold_high_ = 0.4;
+    if (rpc_value.hasMember("data"))
+    {
+      XmlRpc::XmlRpcValue& data = rpc_value["data"];
+      try
+      {
+        if (data.hasMember("threshold_low"))
+          threshold_low_ = static_cast<double>(data["threshold_low"]);
+        if (data.hasMember("threshold_high"))
+          threshold_high_ = static_cast<double>(data["threshold_high"]);
+        if (data.hasMember("threshold"))
+        {
+          threshold_low_ = static_cast<double>(data["threshold"]);
+          threshold_high_ = threshold_low_;
+        }
+      }
+      catch (XmlRpc::XmlRpcException&)
+      {
+        // Keep defaults.
+      }
+    }
+    if (threshold_high_ < threshold_low_)
+      threshold_high_ = threshold_low_;
+
+    // Warning text should be configured via YAML (config.content).
+    if (!rpc_value.hasMember("config") || !rpc_value["config"].hasMember("start_position"))
+    {
+      // Screen center-ish and slightly upper.
+      graph_->setStartX(760);
+      graph_->setStartY(320);
+    }
+  }
+
+  void updateCapacityData(const rm_msgs::PowerManagementSampleAndStatusData& data, const ros::Time& last_get_data_time);
+
+private:
+  void display(const ros::Time& time) override;
+
+  double threshold_low_{ 0.20 };
+  double threshold_high_{ 0.30 };
+  bool low_state_{ false };
+  bool has_state_{ false };
 };
 }  // namespace rm_referee

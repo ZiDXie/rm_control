@@ -11,6 +11,10 @@ bool own_standard_3_special_mark
 bool own_standard_4_special_mark
 bool own_aerial_special_mark
 bool own_sentry_special_mark
+bool enemy_aerial_targeted_by_own_radar
+bool enemy_aerial_in_countermeasure
+bool own_aerial_targeted_by_enemy_radar
+bool own_aerial_in_countermeasure
 bool mark_hero_progress
 bool mark_engineer_progress
 bool mark_standard_3_progress

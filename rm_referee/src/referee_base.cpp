@@ -33,6 +33,10 @@ RefereeBase::RefereeBase(ros::NodeHandle& nh, Base& base) : base_(base), nh_(nh)
       nh.subscribe<rm_msgs::ManualToReferee>("/manual_to_referee", 10, &RefereeBase::manualDataCallBack, this);
   RefereeBase::camera_name_sub_ = nh.subscribe("/camera_name", 10, &RefereeBase::cameraNameCallBack, this);
   RefereeBase::balance_state_sub_ = nh.subscribe("/state", 10, &RefereeBase::balanceStateCallback, this);
+  const std::string legged_chassis_status_topic =
+      getParam(nh, "legged_chassis_status_topic", std::string("/controllers/chassis_controller/legged_chassis_status"));
+  RefereeBase::legged_chassis_status_sub_ = nh.subscribe<rm_msgs::LeggedChassisStatus>(
+      legged_chassis_status_topic, 10, &RefereeBase::leggedChassisStatusCallback, this);
   RefereeBase::track_sub_ = nh.subscribe<rm_msgs::TrackData>("/track", 10, &RefereeBase::trackCallBack, this);
   RefereeBase::enemy_color_sub_ =
       nh.subscribe<std_msgs::Bool>("/sp_vision/enemy_color", 10, &RefereeBase::enemycolorCallBack, this);
@@ -138,6 +142,13 @@ RefereeBase::RefereeBase(ros::NodeHandle& nh, Base& base) : base_(base), nh_(nh)
       if (rpc_value[i]["name"] == "balance_pitch")
         balance_pitch_time_change_group_ui_ =
             new BalancePitchTimeChangeGroupUi(rpc_value[i], base_, &graph_queue_, &character_queue_);
+      if (rpc_value[i]["name"].getType() == XmlRpc::XmlRpcValue::TypeString)
+      {
+        const std::string ui_name = static_cast<std::string>(rpc_value[i]["name"]);
+        if (ui_name.find("leg_theta") != std::string::npos)
+          leg_theta_time_change_group_uis_.push_back(
+              new LegThetaTimeChangeGroupUi(rpc_value[i], base_, &graph_queue_, &character_queue_));
+      }
       if (rpc_value[i]["name"] == "engineer_joint1")
         engineer_joint1_time_change_ui =
             new JointPositionTimeChangeUi(rpc_value[i], base_, &graph_queue_, &character_queue_, "joint1");
@@ -179,6 +190,8 @@ RefereeBase::RefereeBase(ros::NodeHandle& nh, Base& base) : base_(base), nh_(nh)
       //   cover_flash_ui_ = new CoverFlashUi(rpc_value[i], base_, &graph_queue_, &character_queue_);
       if (rpc_value[i]["name"] == "spin")
         spin_flash_ui_ = new SpinFlashUi(rpc_value[i], base_, &graph_queue_, &character_queue_);
+      if (rpc_value[i]["name"] == "capacity_run_out")
+        capacity_run_out_flash_ui_ = new CapacityRunOutFlashUi(rpc_value[i], base_, &graph_queue_, &character_queue_);
       if (rpc_value[i]["name"] == "deploy")
         deploy_flash_ui_ = new DeployFlashUi(rpc_value[i], base_, &graph_queue_, &character_queue_);
       if (rpc_value[i]["name"] == "hero_hit")
@@ -263,6 +276,9 @@ void RefereeBase::addUi()
     lane_line_time_change_ui_->addForQueue();
   if (balance_pitch_time_change_group_ui_)
     balance_pitch_time_change_group_ui_->addForQueue();
+  for (auto* ui : leg_theta_time_change_group_uis_)
+    if (ui)
+      ui->addForQueue();
   if (pitch_angle_time_change_ui_)
     pitch_angle_time_change_ui_->addForQueue();
   // if (image_transmission_angle_time_change_ui_)
@@ -416,6 +432,8 @@ void RefereeBase::capacityDataCallBack(const rm_msgs::PowerManagementSampleAndSt
 {
   if (capacitor_time_change_ui_ && !is_adding_)
     capacitor_time_change_ui_->updateRemainCharge(data.capacity_remain_charge, last_get_data_time);
+  if (capacity_run_out_flash_ui_ && !is_adding_)
+    capacity_run_out_flash_ui_->updateCapacityData(data, last_get_data_time);
   if (chassis_trigger_change_ui_ && !is_adding_)
     chassis_trigger_change_ui_->updateCapacityResetStatus();
 }
@@ -581,6 +599,15 @@ void RefereeBase::balanceStateCallback(const rm_msgs::BalanceStateConstPtr& data
 {
   if (balance_pitch_time_change_group_ui_)
     balance_pitch_time_change_group_ui_->calculatePointPosition(data, ros::Time::now());
+}
+
+void RefereeBase::leggedChassisStatusCallback(const rm_msgs::LeggedChassisStatusConstPtr& data)
+{
+  if (is_adding_)
+    return;
+  for (auto* ui : leg_theta_time_change_group_uis_)
+    if (ui)
+      ui->calculatePointPosition(data, ros::Time::now());
 }
 void RefereeBase::sentryAttackingTargetCallback(const rm_msgs::SentryAttackingTargetConstPtr& data)
 {

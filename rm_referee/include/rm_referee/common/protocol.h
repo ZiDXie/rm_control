@@ -251,10 +251,12 @@ typedef struct
   uint16_t ally_2_robot_hp;
   uint16_t ally_3_robot_hp;
   uint16_t ally_4_robot_hp;
-  uint16_t reserved;
+  int16_t damage_difference;
   uint16_t ally_7_robot_hp;
   uint16_t ally_outpost_hp;
   uint16_t ally_base_hp;
+  uint16_t enemy_outpost_hp;
+  uint16_t enemy_base_hp;
 } __packed GameRobotHp;
 
 typedef struct
@@ -323,10 +325,10 @@ typedef struct
 typedef struct
 {
   uint8_t dart_remaining_time;
-  uint8_t dart_last_aim_state : 3;
-  uint8_t enemy_total_hit_received : 3;
-  uint8_t dart_current_target : 2;
-  uint8_t reserved;
+  uint16_t dart_last_aim_state : 3;
+  uint16_t enemy_total_hit_received : 3;
+  uint16_t dart_current_target : 3;
+  uint16_t reserved : 7;
 } __packed DartInfo;
 
 typedef struct
@@ -338,6 +340,7 @@ typedef struct
   uint16_t shooter_cooling_rate;
   uint16_t shooter_cooling_limit;
   uint16_t chassis_power_limit;
+  float bullet_speed_limit;
   uint8_t mains_power_gimbal_output : 1;
   uint8_t mains_power_chassis_output : 1;
   uint8_t mains_power_shooter_output : 1;
@@ -496,7 +499,10 @@ typedef union
     uint16_t own_standard_4_special_mark : 1;
     uint16_t own_aerial_special_mark : 1;
     uint16_t own_sentry_special_mark : 1;
-    uint16_t reserved : 4;
+    uint16_t enemy_aerial_targeted_by_own_radar : 1;
+    uint16_t enemy_aerial_in_countermeasure : 1;
+    uint16_t own_aerial_targeted_by_enemy_radar : 1;
+    uint16_t own_aerial_in_countermeasure : 1;
   };
 } __packed RadarMarkData;
 
@@ -547,9 +553,9 @@ typedef union
     uint32_t bullet_exchange_target : 11;
     uint32_t remote_bullet_exchange_req_cnt : 4;
     uint32_t remote_hp_exchange_req_cnt : 4;
-    uint32_t posture_cmd : 2;
+    uint32_t posture_cmd : 3;
     uint32_t confirm_rune_activating : 1;
-    uint32_t reserved : 8;
+    uint32_t reserved : 7;
   };
 } __packed SentryCmd;
 
@@ -626,7 +632,22 @@ typedef struct
       uint16_t remaining_bullets_can_supply : 11;
       uint16_t sentry_mode : 2;
       uint16_t can_activate_energy_mechanism : 1;
-      uint16_t reserved_1 : 1;
+      uint16_t is_enhanced_posture : 1;
+    };
+  };
+  union
+  {
+    uint64_t sentry_info_3;
+    struct
+    {
+      uint64_t offensive_posture_remaining_time_before_weakening : 8;
+      uint64_t defensive_posture_remaining_time_before_weakening : 8;
+      uint64_t mobile_posture_remaining_time_before_weakening : 8;
+      uint64_t reserved_1 : 8;
+      uint64_t enhanced_offensive_posture_remaining_time : 8;
+      uint64_t enhanced_defensive_posture_remaining_time : 8;
+      uint64_t enhanced_mobile_posture_remaining_time : 8;
+      uint64_t reserved_2 : 8;
     };
   };
 } __packed SentryInfo;
@@ -738,6 +759,11 @@ typedef struct
   uint8_t sentry_negative_defense_buff;
   uint16_t sentry_attack_buff;
   uint8_t sentry_posture;
+  uint8_t hero_main_status;
+  uint8_t engineer_main_status;
+  uint8_t infantry_3_main_status;
+  uint8_t infantry_4_main_status;
+  uint8_t sentry_main_status;
 } __packed RadarWirelessEnemyRobotBuff;
 
 typedef struct
